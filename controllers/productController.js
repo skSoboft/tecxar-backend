@@ -119,14 +119,49 @@ exports.delete = (req, res) => {
 
 // List products
 exports.list = (req, res) => {
-  const query = "SELECT * FROM product";
+  const { page = 1, pageSize = 10 } = req.query; // Define pagination parameters
 
-  db.query(query, (err, results) => {
+  // Calculate the offset based on the page and pageSize
+  const offset = (page - 1) * pageSize;
+
+  // Query to fetch the products with pagination
+  const productsQuery = `
+    SELECT p.*, c.name AS category_name
+    FROM product AS p
+    LEFT JOIN category AS c ON p.category_id = c.id
+    LIMIT ${pageSize}
+    OFFSET ${offset}
+  `;
+
+  // Query to count the total number of products
+  const countQuery = "SELECT COUNT(*) AS totalProducts FROM product";
+
+  // Execute the query to fetch products
+  db.query(productsQuery, (err, productsResult) => {
     if (err) {
       console.error("Error listing products:", err);
       return res.status(500).json({ error: "Internal server error" });
     }
 
-    res.json(results);
+    // Execute the query to count total products
+    db.query(countQuery, (err, countResult) => {
+      if (err) {
+        console.error("Error counting products:", err);
+        return res.status(500).json({ error: "Internal server error" });
+      }
+
+      const products = productsResult;
+
+      // Extract the totalProducts count from the countResult
+      const totalProducts = countResult[0].totalProducts;
+
+      // Construct the response object including products and totalProducts
+      const response = {
+        products,
+        totalProducts,
+      };
+
+      res.json(response);
+    });
   });
 };
